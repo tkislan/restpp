@@ -13,6 +13,9 @@ public:
 
   Request &&CreateRequest();
   SslRequest &&CreateSslRequest();
+
+  inline void Run() { io_service_.run(); }
+  inline void Stop() { io_service_.stop(); }
 private:
   asio::io_service io_service_;
   asio::ssl::context ssl_context_;

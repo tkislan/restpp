@@ -7,5 +7,5 @@ using namespace restpp;
 TEST(TestNetworkAccess, Simple) {
   NetworkAccess na;
 
-  Request req(na.CreateRequest());
+  Request req = na.CreateRequest();
 }

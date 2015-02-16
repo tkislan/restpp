@@ -35,6 +35,8 @@ public:
   BasicRequest() = delete;
   BasicRequest(const BasicRequest &request) = delete;
 
+  BasicRequest &operator=(BasicRequest &request) = default;
+
   void Run(const std::function<void()> &callback);
 
   inline void set_host(const std::string &host) {
