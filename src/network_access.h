@@ -9,10 +9,15 @@
 namespace restpp {
 class NetworkAccess {
 public:
-  NetworkAccess();
+  NetworkAccess() : ssl_context_(asio::ssl::context::sslv23_client) {}
 
-  Request &&CreateRequest();
-  SslRequest &&CreateSslRequest();
+  Request CreateRequest() {
+    return Request(io_service_);
+  }
+
+  SslRequest CreateSslRequest() {
+    return SslRequest(io_service_, ssl_context_);
+  }
 
   inline void Run() { io_service_.run(); }
   inline void Stop() { io_service_.stop(); }

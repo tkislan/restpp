@@ -8,4 +8,10 @@ TEST(TestNetworkAccess, Simple) {
   NetworkAccess na;
 
   Request req = na.CreateRequest();
+
+  req.set_method(HttpMethod::GET);
+
+  req.Run([](const std::error_code &error) {
+
+  });
 }
