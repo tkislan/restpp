@@ -12,6 +12,10 @@ TEST(TestNetworkAccess, Simple) {
   req.set_method(HttpMethod::GET);
 
   req.Run([](const std::error_code &error) {
+    std::cout << error.message() << std::endl;
 
+    EXPECT_EQ(static_cast<bool>(error), false);
   });
+
+  na.Run();
 }
