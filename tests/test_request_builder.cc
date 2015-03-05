@@ -10,5 +10,7 @@ TEST(RequestBuilder, Simple) {
 
   BasicRequest<asio::ip::tcp::socket, MockRequestBuilder> request(io_service);
 
+  EXPECT_CALL(request.request_builder(), set_method("GET")).WillOnce(testing::Return(true));
+
   request.set_method(HttpMethod::GET);
 }

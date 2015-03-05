@@ -10,7 +10,8 @@
 #include "asio/buffers_iterator.hpp"
 
 namespace restpp {
-static const std::string kCrLf("\r\n");
+//static const std::string kCrLf("\r\n");
+static const std::string kCrLf("\n");
 
 class StreamRequestBuilder {
 public:
@@ -41,7 +42,8 @@ public:
   }
 
 
-  inline bool add_query_param(const std::string &name, const std::string &value) {
+  template<typename Value>
+  inline bool add_query_param(const std::string &name, const Value &value) {
     if (state_ != State::kQueryParam) { assert(state_ == State::kQueryParam); return false; }
 
     if (first_query_param_) {
@@ -56,7 +58,8 @@ public:
     return true;
   }
 
-  inline bool add_header(const std::string &name, const std::string &value) {
+  template<typename Value>
+  inline bool add_header(const std::string &name, const Value &value) {
     if (state_ == State::kQueryParam) {
       close_path_line();
       state_ = State::kHeader;
@@ -70,7 +73,36 @@ public:
     return true;
   }
 
-  inline bool Build() { return true; }
+  inline bool set_content(const std::string &content) {
+    if (!add_header("Content-Length", content.size())) {
+      assert(!"Failed to add Content-Length header");
+      return false;
+    }
+
+    if (state_ == State::kQueryParam) {
+      close_path_line();
+      state_ = State::kContent;
+    } else if (state_ == State::kHeader) {
+      stream_ << kCrLf;
+    } else if (state_ == State::kContent) {
+      assert(state_ != State::kContent);
+      return false;
+    }
+
+    state_ = State::kContent;
+
+    stream_ << content;
+
+    return true;
+  }
+
+  inline bool Build() {
+    if (state_ == State::kMethod || state_ == State::kPath) return false;
+    if (state_ == State::kQueryParam) close_path_line();
+    if (state_ == State::kHeader || state_ == State::kContent) stream_ << kCrLf;
+
+    return true;
+  }
 
   inline asio::streambuf &buffer() { return buffer_; }
   inline std::string buffer_string() const {
@@ -83,10 +115,11 @@ private:
     kMethod,
     kPath,
     kQueryParam,
-    kHeader
+    kHeader,
+    kContent
   };
 
-  inline void close_path_line() { stream_ << "HTTP/1.1" << kCrLf; }
+  inline void close_path_line() { stream_ << " HTTP/1.1" << kCrLf; }
 
   State state_ = State::kMethod;
   bool first_query_param_ = true;

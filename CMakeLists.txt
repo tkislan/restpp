@@ -3,6 +3,9 @@ cmake_minimum_required(VERSION 2.8)
 project(RestPP)
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wextra")
+add_definitions(-DASIO_STANDALONE=1)
+
+find_package(Threads REQUIRED)
 
 find_package(OpenSSL REQUIRED)
 include_directories(${OPENSSL_INCLUDE_DIR})

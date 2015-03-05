@@ -9,7 +9,13 @@ TEST(TestNetworkAccess, Simple) {
 
   Request req = na.CreateRequest();
 
+  req.set_host("localhost");
+  req.set_port(8000);
+
   req.set_method(HttpMethod::GET);
+  req.set_path("/api");
+  req.add_header("Host", "localhost:8000");
+  req.add_header("Connection", "close");
 
   req.Run([](const std::error_code &error) {
     std::cout << error.message() << std::endl;
