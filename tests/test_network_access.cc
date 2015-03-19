@@ -7,21 +7,50 @@ using namespace restpp;
 TEST(TestNetworkAccess, Simple) {
   NetworkAccess na;
 
-  Request req = na.CreateRequest();
+//  Request req;
+//  req.set_host("localhost");
+//  req.set_port(8000);
 
+//  req.set_method(HttpMethod::GET);
+//  req.set_path("/api");
+//  req.add_header("Host", "localhost:8000");
+//  req.add_header("Connection", "close");
+
+//  na.Run(std::move(req), [](const std::error_code &error, Response resp) {
+//    if (error) {
+//      std::cout << "Request failed: " << error.message() << std::endl;
+//      return;
+//    }
+
+//    std::cout << "Request successful: " << resp.status() << std::endl;
+//    std::cout << "Request successful: " << resp.status_message() << std::endl;
+//    std::cout << "------ Content ------" << std::endl;
+//    std::cout << resp.content() << std::endl;
+//  });
+
+  Request req;
   req.set_host("localhost");
   req.set_port(8000);
 
   req.set_method(HttpMethod::GET);
-  req.set_path("/api");
+  req.set_path("/api/server.js");
   req.add_header("Host", "localhost:8000");
   req.add_header("Connection", "close");
 
-  req.Run([](const std::error_code &error) {
-    std::cout << error.message() << std::endl;
+  na.Run(std::move(req), [](const std::error_code &error, Response resp) {
+    if (error) {
+      std::cout << "Request failed: " << error.message() << std::endl;
+      return;
+    }
 
-    EXPECT_EQ(static_cast<bool>(error), false);
+    std::cout << "Request successful: " << resp.status() << std::endl;
+    std::cout << "Request successful: " << resp.status_message() << std::endl;
+    std::cout << "------ Content ------" << std::endl;
+    std::cout << resp.content() << std::endl;
   });
 
-  na.Run();
+
+  na.Wait();
+
+  std::cout << "NetworkAccess finished" << std::endl;
 }

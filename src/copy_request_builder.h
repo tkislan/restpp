@@ -3,23 +3,24 @@
 
 #include <memory>
 #include <ostream>
+#include <map>
+#include <vector>
 
 #include "asio/streambuf.hpp"
 #include "asio/buffers_iterator.hpp"
 
-namespace restpp {
-//static const std::string kCrLf("\r\n");
-static const std::string kCrLf("\n");
+#include "constants.h"
+#include "utils.h"
 
+namespace restpp {
 class CopyRequestBuilder {
 public:
   inline bool set_method(const std::string &method) { method_ = method; return true; }
   inline bool set_path(const std::string &path) { path_ = path; return true; }
   inline bool add_query_param(const std::string &name, const std::string &value) { query_params_.push_back(std::make_pair(name, value)); return true; }
-
   inline bool add_header(const std::string &name, const std::string &value) { headers_.push_back(std::make_pair(name, value)); return true; }
 
-  inline const asio::streambuf &buffer() const { return buffer_; }
+  inline asio::streambuf &buffer() { return buffer_; }
   inline std::string buffer_string() const {
     asio::streambuf::const_buffers_type buffer = buffer_.data();
     return std::string(asio::buffers_begin(buffer), asio::buffers_begin(buffer) + buffer_.size());

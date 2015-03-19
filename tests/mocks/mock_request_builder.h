@@ -10,6 +10,8 @@ class MockRequestBuilder {
 public:
   MOCK_METHOD1(set_method, bool(const std::string&));
   MOCK_METHOD2(add_header, bool(const std::string&, const std::string&));
+  MOCK_CONST_METHOD0(host, const std::string&());
+  MOCK_CONST_METHOD0(port, std::uint16_t());
 };
 }
 

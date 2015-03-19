@@ -1,7 +1,9 @@
 enable_testing()
 
 set(MOCK_HDRS
-  mocks/mock_request_builder.h)
+  mocks/mock_request_builder.h
+  mocks/mock_basic_request.h
+  mocks/mock_server.h)
 
 add_custom_target(MockHeaders SOURCES ${MOCK_HDRS})
 
@@ -16,25 +18,22 @@ include_directories(${CMAKE_SOURCE_DIR}/src)
 
 add_definitions(-DGTEST_HAS_PTHREAD=1)
 
-add_executable(test_network_access test_network_access.cc)
-target_link_libraries(test_network_access gmock_main ${OPENSSL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-add_test(TestNetworkAccess test_network_access)
-add_dependencies(run-tests test_network_access)
+macro(restpp_add_test TEST_NAME EXECUTABLE)
+  add_executable(${EXECUTABLE} ${EXECUTABLE}.cc)
+  target_link_libraries(${EXECUTABLE} gmock_main ${OPENSSL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+  if(WIN32)
+    target_link_libraries(${EXECUTABLE} wsock32 ws2_32)
+  endif()
 
-add_executable(test_request_builder test_request_builder.cc)
-target_link_libraries(test_request_builder gmock_main ${OPENSSL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-add_test(TestRequestBuilder test_request_builder)
-add_dependencies(run-tests test_request_builder)
+  add_test(${TEST_NAME} ${EXECUTABLE})
+  add_dependencies(run-tests ${EXECUTABLE})
+endmacro()
 
-add_executable(test_stream_request_builder test_stream_request_builder.cc)
-target_link_libraries(test_stream_request_builder gmock_main ${OPENSSL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-add_test(TestStreamRequestBuilder test_stream_request_builder)
-add_dependencies(run-tests test_stream_request_builder)
-
-add_executable(test_copy_request_builder test_copy_request_builder.cc)
-target_link_libraries(test_copy_request_builder gmock_main ${OPENSSL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-add_test(TestCopyRequestBuilder test_copy_request_builder)
-add_dependencies(run-tests test_copy_request_builder)
+restpp_add_test(TestNetworkAccess test_network_access)
+restpp_add_test(TestRequestBuilder test_request_builder)
+restpp_add_test(TestStreamRequestBuilder test_stream_request_builder)
+restpp_add_test(TestCopyRequestBuilder test_copy_request_builder)
+restpp_add_test(TestHttpStream test_http_stream)
 
 if(WIN32)
   add_custom_target(start-test-server
@@ -51,8 +50,3 @@ add_dependencies(check stop-test-server)
 add_dependencies(stop-test-server run-tests)
 add_dependencies(run-tests start-test-server)
 
-if(WIN32)
-  target_link_libraries(test_network_access wsock32 ws2_32)
-  target_link_libraries(test_request_builder wsock32 ws2_32)
-  target_link_libraries(test_stream_request_builder wsock32 ws2_32)
-endif()

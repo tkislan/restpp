@@ -9,10 +9,9 @@
 #include "asio/streambuf.hpp"
 #include "asio/buffers_iterator.hpp"
 
-namespace restpp {
-//static const std::string kCrLf("\r\n");
-static const std::string kCrLf("\n");
+#include "constants.h"
 
+namespace restpp {
 class StreamRequestBuilder {
 public:
   StreamRequestBuilder()
