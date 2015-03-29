@@ -4,26 +4,34 @@
 #include <memory>
 #include <functional>
 
+#include "asio/connect.hpp"
+#include "asio/read.hpp"
+#include "asio/read_until.hpp"
+#include "asio/write.hpp"
+#include "asio/strand.hpp"
 #include "asio/steady_timer.hpp"
+#include "asio/ip/tcp.hpp"
 
 #include "http_stream_error_category.h"
-#include "basic_request.h"
+//#include "basic_request.h"
 #include "response.h"
+#include "request.h"
 #include "utils.h"
+#include "request_builder.h"
 
 namespace restpp {
-template<typename RequestType, typename SocketType>
-class HttpStream : public std::enable_shared_from_this<HttpStream<RequestType, SocketType>> {
+template<typename SocketType>
+class HttpStream : public std::enable_shared_from_this<HttpStream<SocketType>> {
 public:
   HttpStream(asio::io_service &io_service,
-             RequestType &&request,
+             Request &&request,
              std::function<void (const std::error_code&, Response response)> &&callback)
     : strand_(io_service),
       resolver_(io_service),
       socket_(io_service),
       timer_(io_service),
       request_(std::move(request)),
-      data_callback_(std::bind(&HttpStream<RequestType, SocketType>::MemoryDataCallback,
+      data_callback_(std::bind(&HttpStream<SocketType>::MemoryDataCallback,
                                this,
                                std::placeholders::_1,
                                std::placeholders::_2,
@@ -57,16 +65,20 @@ public:
   }
 
   void Run() {
-    request_.Build();
+//    request_.Build();
 
-    asio::streambuf::const_buffers_type bufs = request_.buffer().data();
-    std::string request_string(asio::buffers_begin(bufs), asio::buffers_begin(bufs) + request_.buffer().size());
+    std::error_code error;
+    RequestBuilder::BuildRequest(request_, request_buffer_, error);
+
+    asio::streambuf::const_buffers_type bufs = request_buffer_.data();
+    std::string request_string(asio::buffers_begin(bufs), asio::buffers_begin(bufs) + request_buffer_.size());
 
     std::cout << request_string << std::endl;
 
+
     asio::ip::tcp::resolver::query query(request_.host(), std::to_string(request_.port()), asio::ip::resolver_query_base::numeric_service);
 
-    resolver_.async_resolve(query, std::bind(&HttpStream<RequestType, SocketType>::ResolveCallback, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
+    resolver_.async_resolve(query, std::bind(&HttpStream<SocketType>::ResolveCallback, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 
     StartTimer();
   }
@@ -79,7 +91,7 @@ private:
 
     StartTimer();
 
-    asio::async_connect(socket_, endpoint_iterator, std::bind(&HttpStream<RequestType, SocketType>::ConnectCallback, this->shared_from_this(), std::placeholders::_1));
+    asio::async_connect(socket_, endpoint_iterator, std::bind(&HttpStream<SocketType>::ConnectCallback, this->shared_from_this(), std::placeholders::_1));
   }
 
   void ConnectCallback(const std::error_code &error) {
@@ -89,12 +101,12 @@ private:
 
     StartTimer();
 
-    asio::async_write(socket_, request_.buffer(), strand_.wrap(std::bind(&HttpStream<RequestType, SocketType>::WriteRequestCallback,
-                                                                         this->shared_from_this(),
-                                                                         std::placeholders::_1,
-                                                                         std::placeholders::_2)));
+    asio::async_write(socket_, request_buffer_, strand_.wrap(std::bind(&HttpStream<SocketType>::WriteRequestCallback,
+                                                                       this->shared_from_this(),
+                                                                       std::placeholders::_1,
+                                                                       std::placeholders::_2)));
 
-    asio::async_read_until(socket_, buffer_, kCrLf, strand_.wrap(std::bind(&HttpStream<RequestType, SocketType>::ReadStatusLineCallback,
+    asio::async_read_until(socket_, buffer_, kCrLf, strand_.wrap(std::bind(&HttpStream<SocketType>::ReadStatusLineCallback,
                                                                            this->shared_from_this(),
                                                                            std::placeholders::_1,
                                                                            std::placeholders::_2)));
@@ -104,6 +116,25 @@ private:
     if (error) return ErrorCallback(error);
 
     std::cout << "Written request: " << bytes_transferred << " bytes" << std::endl;
+
+    switch (request_.content_type()) {
+      case ContentType::NONE:
+        break;
+      case ContentType::COMPLETE:
+        asio::async_write(socket_, asio::buffer(request_.content()), strand_.wrap(std::bind(&HttpStream<SocketType>::WriteRequestContentCallback,
+                                                                                            this->shared_from_this(),
+                                                                                            std::placeholders::_1,
+                                                                                            std::placeholders::_2)));
+        break;
+      case ContentType::CHUNKED:
+        break;
+    }
+  }
+
+  void WriteRequestContentCallback(const std::error_code &error, size_t bytes_transferred) {
+    std::cout << "WriteRequestContentCallback: " << error << ", bytes_transferred: " << bytes_transferred << std::endl;
+
+    if (error) return ErrorCallback(error);
   }
 
   void ReadStatusLineCallback(const std::error_code &error, size_t bytes_transferred) {
@@ -121,7 +152,7 @@ private:
     GetStatusLine(is, response_.http_version_, response_.status_, response_.status_message_);
     if (!is.good()) return ErrorCallback(std::error_code(HttpStreamErrorCategory::INVALID_STATUS_LINE, HttpStreamErrorCategory::category()));
 
-    asio::async_read_until(socket_, buffer_, kDoubleCrLf, strand_.wrap(std::bind(&HttpStream<RequestType, SocketType>::ReadHeadersCallback,
+    asio::async_read_until(socket_, buffer_, kDoubleCrLf, strand_.wrap(std::bind(&HttpStream<SocketType>::ReadHeadersCallback,
                                                                                  this,
                                                                                  std::placeholders::_1,
                                                                                  std::placeholders::_2)));
@@ -170,7 +201,7 @@ private:
   void AsyncReadContent(size_t content_length) {
     StartTimer();
 
-    asio::async_read(socket_, buffer_, strand_.wrap(std::bind(&HttpStream<RequestType, SocketType>::ReadContentCallback,
+    asio::async_read(socket_, buffer_, strand_.wrap(std::bind(&HttpStream<SocketType>::ReadContentCallback,
                                                               this->shared_from_this(),
                                                               std::placeholders::_1,
                                                               std::placeholders::_2,
@@ -204,7 +235,7 @@ private:
   void AsyncReadChunkSize() {
     StartTimer();
 
-    asio::async_read_until(socket_, buffer_, kCrLf, strand_.wrap(std::bind(&HttpStream<RequestType, SocketType>::ReadChunkSizeCallback,
+    asio::async_read_until(socket_, buffer_, kCrLf, strand_.wrap(std::bind(&HttpStream<SocketType>::ReadChunkSizeCallback,
                                                                            this->shared_from_this(),
                                                                            std::placeholders::_1,
                                                                            std::placeholders::_2)));
@@ -244,7 +275,7 @@ private:
   void AsyncReadChunkedContent(const ChunkInfo &chunk_info) {
     StartTimer();
 
-    asio::async_read(socket_, buffer_, strand_.wrap(std::bind(&HttpStream<RequestType, SocketType>::ReadChunkedContentCallback,
+    asio::async_read(socket_, buffer_, strand_.wrap(std::bind(&HttpStream<SocketType>::ReadChunkedContentCallback,
                                                               this->shared_from_this(),
                                                               std::placeholders::_1,
                                                               std::placeholders::_2,
@@ -267,7 +298,7 @@ private:
   void AsyncReadEmptyCrlf(bool last_chunk) {
     StartTimer();
 
-    asio::async_read_until(socket_, buffer_, kCrLf, strand_.wrap(std::bind(&HttpStream<RequestType, SocketType>::ReadEmptyCrlfCallback,
+    asio::async_read_until(socket_, buffer_, kCrLf, strand_.wrap(std::bind(&HttpStream<SocketType>::ReadEmptyCrlfCallback,
                                                                            this->shared_from_this(),
                                                                            std::placeholders::_1,
                                                                            std::placeholders::_2,
@@ -309,7 +340,7 @@ private:
 
   void StartTimer() {
     timer_.expires_from_now(std::chrono::seconds(5));
-    timer_.async_wait(strand_.wrap(std::bind(&HttpStream<RequestType, SocketType>::TimeoutCallback, this->shared_from_this(), std::placeholders::_1)));
+    timer_.async_wait(strand_.wrap(std::bind(&HttpStream<SocketType>::TimeoutCallback, this->shared_from_this(), std::placeholders::_1)));
   }
 
   void TimeoutCallback(const std::error_code &error) {
@@ -334,9 +365,9 @@ private:
   SocketType socket_;
   asio::steady_timer timer_;
 
-  asio::streambuf buffer_;
+  asio::streambuf request_buffer_, buffer_;
 
-  RequestType request_;
+  Request request_;
   Response response_;
 
   std::function<void (asio::buffers_iterator<asio::streambuf::const_buffers_type> begin,

@@ -9,7 +9,7 @@
 
 namespace restpp {
 class Response {
-  template<typename RequestType, typename SocketType> friend class HttpStream;
+  template<typename SocketType> friend class HttpStream;
 public:
   Response() = default;
   Response(Response &&response) = default;

@@ -6,6 +6,8 @@
 namespace restpp {
 class HttpStreamErrorCategory : public std::error_category {
 public:
+  HttpStreamErrorCategory() {}
+
   enum HttpStreamError {
     INVALID_STATUS_LINE = 1,
     INVALID_HEADER_LINE = 2,

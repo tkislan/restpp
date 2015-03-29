@@ -6,15 +6,17 @@
 
 #include "asio/io_service.hpp"
 #include "asio/ssl/context.hpp"
+#include "asio/ip/tcp.hpp"
 
-#include "basic_request.h"
+//#include "basic_request.h"
+#include "request.h"
 #include "copy_request_builder.h"
 #include "http_stream.h"
 
 namespace restpp {
 static const size_t kMaxThreadCount = 4;
 
-static size_t SafeThreadCount(size_t thread_count) { return std::min(std::max(1u, thread_count), kMaxThreadCount); }
+static size_t SafeThreadCount(size_t thread_count) { return std::min(std::max<size_t>(1u, thread_count), kMaxThreadCount); }
 
 class NetworkAccess {
 public:
@@ -51,14 +53,14 @@ public:
 //    return BasicRequest<asio::ssl::stream<asio::ip::tcp::socket>, RequestBuilder>(io_service_, ssl_context);
 //  }
 
-  template<typename Request>
-  inline std::shared_ptr<HttpStream<Request, asio::ip::tcp::socket>> Run(Request &&request,
-                  std::function<void (const std::error_code&, Response response)> callback)
-  {
-    auto http = std::make_shared<HttpStream<Request, asio::ip::tcp::socket>>(io_service_, std::move(request), std::move(callback));
-    http->Run();
-    return http;
-  }
+//  template<typename Request>
+//  inline std::shared_ptr<HttpStream<asio::ip::tcp::socket>> Run(Request &&request,
+//                                                                std::function<void (const std::error_code&, Response response)> callback)
+//  {
+//    auto http = std::make_shared<HttpStream<asio::ip::tcp::socket>>(io_service_, std::move(request), std::move(callback));
+//    http->Run();
+//    return http;
+//  }
 
   inline void Wait() {
     work_.reset();
