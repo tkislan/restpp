@@ -1,8 +1,6 @@
 enable_testing()
 
 set(MOCK_HDRS
-  mocks/mock_request_builder.h
-  mocks/mock_basic_request.h
   mocks/mock_server.h)
 
 add_custom_target(MockHeaders SOURCES ${MOCK_HDRS})

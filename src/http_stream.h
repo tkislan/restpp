@@ -11,6 +11,7 @@
 #include "asio/strand.hpp"
 #include "asio/steady_timer.hpp"
 #include "asio/ip/tcp.hpp"
+#include "asio/ssl/stream.hpp"
 
 #include "http_stream_error_category.h"
 //#include "basic_request.h"
@@ -18,17 +19,38 @@
 #include "request.h"
 #include "utils.h"
 #include "request_builder.h"
+#include "http_stream_state.h"
+#include "http_connector.h"
 
 namespace restpp {
 template<typename SocketType>
 class HttpStream : public std::enable_shared_from_this<HttpStream<SocketType>> {
 public:
+//  HttpStream(asio::io_service &io_service,
+//             Request &&request,
+//             std::function<void (const std::error_code&, Response response)> &&callback)
+//    : strand_(io_service),
+//      resolver_(io_service),
+//      socket_(io_service),
+//      timer_(io_service),
+//      request_(std::move(request)),
+//      data_callback_(std::bind(&HttpStream<SocketType>::MemoryDataCallback,
+//                               this,
+//                               std::placeholders::_1,
+//                               std::placeholders::_2,
+//                               std::placeholders::_3)),
+//      callback_(std::move(callback))
+//  {
+
+//  }
+
   HttpStream(asio::io_service &io_service,
+             SocketType &&socket,
              Request &&request,
              std::function<void (const std::error_code&, Response response)> &&callback)
     : strand_(io_service),
       resolver_(io_service),
-      socket_(io_service),
+      socket_(std::move(socket)),
       timer_(io_service),
       request_(std::move(request)),
       data_callback_(std::bind(&HttpStream<SocketType>::MemoryDataCallback,
@@ -64,6 +86,8 @@ public:
     CloseSocket();
   }
 
+  inline HttpStreamState state() const { return state_; }
+
   void Run() {
 //    request_.Build();
 
@@ -81,6 +105,10 @@ public:
     resolver_.async_resolve(query, std::bind(&HttpStream<SocketType>::ResolveCallback, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 
     StartTimer();
+  }
+
+  void Cancel() {
+    CloseSocket();
   }
 
 private:
@@ -347,7 +375,8 @@ private:
     if (error != asio::error::operation_aborted) ErrorCallback(std::error_code(asio::error::timed_out, asio::error::get_system_category()));
   }
 
-  void CloseSocket() {
+  template<typename U = SocketType>
+  typename std::enable_if<std::is_same<U, asio::ip::tcp::socket>::value, void>::type CloseSocket() {
     if (!socket_.is_open()) return;
     std::error_code error;
     socket_.shutdown(asio::ip::tcp::socket::shutdown_both, error);
@@ -356,13 +385,28 @@ private:
     assert(!error);
   }
 
+  template<typename U = SocketType>
+  typename std::enable_if<std::is_same<U, asio::ssl::stream<asio::ip::tcp::socket>>::value, void>::type CloseSocket() {
+    if (!socket_.next_layer().is_open()) return;
+    std::error_code error;
+    socket_.next_layer().shutdown(asio::ip::tcp::socket::shutdown_both, error);
+    assert(!error);
+    socket_.next_layer().close(error);
+    assert(!error);
+  }
+
+
   void MemoryDataCallback(asio::buffers_iterator<asio::streambuf::const_buffers_type> begin, asio::buffers_iterator<asio::streambuf::const_buffers_type> end, std::error_code&) {
     response_.content_.append(begin, end);
   }
 
+  HttpStreamState state_ = HttpStreamState::IDLE;
+
   asio::io_service::strand strand_;
   asio::ip::tcp::resolver resolver_;
+//  HttpConnector<SocketType> connector_;
   SocketType socket_;
+//  std::unique_ptr<SocketType> socket_;
   asio::steady_timer timer_;
 
   asio::streambuf request_buffer_, buffer_;

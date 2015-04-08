@@ -5,6 +5,8 @@ set(HDRS
 
   http_stream.h
   http_stream_error_category.h
+  http_connector.h
+  http_watcher.h
 
   response.h
 

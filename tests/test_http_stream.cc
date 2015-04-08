@@ -3,7 +3,6 @@
 #include "http_stream.h"
 #include "request.h"
 
-#include "mocks/mock_basic_request.h"
 #include "mocks/mock_server.h"
 
 using namespace restpp;
@@ -26,7 +25,9 @@ TEST(TestHttpStream, Simple) {
   req.add_header("Host", "localhost:8000");
   req.add_header("Connection", "close");
 
-  auto http = std::make_shared<HttpStream<asio::ip::tcp::socket>>(io_service, std::move(req), [](const std::error_code &error, Response resp) {
+  asio::ip::tcp::socket socket(io_service);
+
+  auto http = std::make_shared<HttpStream<asio::ip::tcp::socket>>(io_service, std::move(socket), std::move(req), [](const std::error_code &error, Response resp) {
     std::cout << "Finished: " << error.message() << std::endl;
 
 //    ASSERT_EQ(std::error_code(HttpStreamErrorCategory::INVALID_STATUS_LINE, HttpStreamErrorCategory::category()), error);

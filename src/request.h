@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <system_error>
 
 namespace restpp {
 enum class HttpMethod {
@@ -67,6 +68,9 @@ public:
   inline std::uint16_t port() const { return port_; }
   inline void set_port(std::uint16_t port) { port_ = port; }
 
+  inline bool secure() const { return secure_; }
+  inline void set_secure(bool secure) { secure_ = secure; }
+
   inline const std::string &method() const { return method_; }
   inline void set_method(const std::string &method) { method_ = method; }
   inline void set_method(HttpMethod method) { method_ = kHttpMethodString[static_cast<size_t>(method)]; }
@@ -110,6 +114,7 @@ public:
 private:
   std::string host_;
   std::uint16_t port_ = 0;
+  bool secure_ = false;
 
   std::string method_;
 
